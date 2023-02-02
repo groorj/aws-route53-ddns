@@ -1,0 +1,6 @@
+*.ignore
+_archive
+a.py
+DOCS.txt
+source.sh
+README.md
