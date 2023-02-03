@@ -1,9 +1,7 @@
 #!/usr/bin/env python
 
-# from __future__ import print_function
 import sys
 import yaml
-# import pprint
 import boto3
 import ipaddress
 import urllib.request
@@ -57,6 +55,44 @@ def get_public_ip():
     # return "127.0.0.1"
     return public_ip.strip()
 
+# create or update DNS record
+def manipulate_dns_record(host_zone_id, dns_ttl, my_hostname, public_ip):
+    response = client.change_resource_record_sets(
+        HostedZoneId=host_zone_id,
+        ChangeBatch = {
+            'Changes': [
+                {
+                    'Action': 'UPSERT',
+                    'ResourceRecordSet': {
+                        'Name': my_hostname+".",
+                        'Type': 'A',
+                        'ResourceRecords': [
+                            {
+                                'Value': public_ip
+                            }
+                        ],
+                        'TTL': dns_ttl
+                    }
+                },
+                {
+                    'Action': 'UPSERT',
+                    'ResourceRecordSet': {
+                        'Name': my_hostname+".",
+                        'Type': 'TXT',
+                        'ResourceRecords': [
+                            {
+                                'Value': '"This is a test text."'
+                            }
+                        ],
+                        'TTL': dns_ttl
+                    }
+                }
+            ],
+            'Comment': 'Updated using https://github.com/groorj/aws-route53-ddns',
+        }
+    )
+    return response
+
 # main
 if __name__ == "__main__":
     # get config
@@ -70,6 +106,7 @@ if __name__ == "__main__":
     aws_region = config.get("assertions").get("region", [])
     save_txt_record = config.get("assertions").get("save_txt_record", [])
     host_zone_id = config.get("assertions").get("host_zone_id", [])
+    dns_ttl = config.get("assertions").get("dns_ttl", [])
 
     # start boto Session
     boto_session = get_boto_session(config["profile_name"], aws_region)
@@ -94,66 +131,44 @@ if __name__ == "__main__":
         print("Same IP, did not change!")
     else:
         print("Different IPs, IP changed!")
-        response = client.change_resource_record_sets(
-            HostedZoneId=host_zone_id,
-            ChangeBatch = {
-                'Changes': [
-                    {
-                        'Action': 'UPSERT',
-                        'ResourceRecordSet': {
-                            'Name': my_hostname+".",
-                            'Type': 'A',
-                            'ResourceRecords': [
-                                {
-                                    'Value': public_ip
-                                }
-                            ],
-                            'TTL': 60
-                        }
-                    },
-                    {
-                        'Action': 'UPSERT',
-                        'ResourceRecordSet': {
-                            'Name': my_hostname+".",
-                            'Type': 'TXT',
-                            'ResourceRecords': [
-                                {
-                                    'Value': '"This is a test text."'
-                                }
-                            ],
-                            'TTL': 60
-                        }
-                    }
-                ],
-                'Comment': 'Updated using https://github.com/groorj/aws-route53-ddns',
-            }
-        )
-        print(response)
+        resp = manipulate_dns_record(host_zone_id, dns_ttl, my_hostname, public_ip)
+        # response = client.change_resource_record_sets(
+        #     HostedZoneId=host_zone_id,
+        #     ChangeBatch = {
+        #         'Changes': [
+        #             {
+        #                 'Action': 'UPSERT',
+        #                 'ResourceRecordSet': {
+        #                     'Name': my_hostname+".",
+        #                     'Type': 'A',
+        #                     'ResourceRecords': [
+        #                         {
+        #                             'Value': public_ip
+        #                         }
+        #                     ],
+        #                     'TTL': 60
+        #                 }
+        #             },
+        #             {
+        #                 'Action': 'UPSERT',
+        #                 'ResourceRecordSet': {
+        #                     'Name': my_hostname+".",
+        #                     'Type': 'TXT',
+        #                     'ResourceRecords': [
+        #                         {
+        #                             'Value': '"This is a test text."'
+        #                         }
+        #                     ],
+        #                     'TTL': 60
+        #                 }
+        #             }
+        #         ],
+        #         'Comment': 'Updated using https://github.com/groorj/aws-route53-ddns',
+        #     }
+        # )
+        print(resp)
 
     # update DNS accordingly 
-
-
-
-#     update_json = """{
-# 'Changes': [
-#             {
-#                 'Action': 'UPSERT',
-#                 'ResourceRecordSet': {
-#                     'Name': '',
-#                     'ResourceRecords': [
-#                         {
-#                             'Value': '{var_my_ip_address}',
-#                         },
-#                     ],
-#                     'TTL': 300,
-#                     'Type': 'A',
-#                 },
-#             },
-#         ],
-#         'Comment': 'Updated using https://github.com/groorj/aws-route53-ddns',
-#     }
-# """
-
 
     # print(update_json.format(var_my_ip_address=my_ip_address))
     # print(update_json)
