@@ -115,19 +115,27 @@ if __name__ == "__main__":
     host_zone_id = config.get("assertions").get("host_zone_id", [])
     dns_ttl = config.get("assertions").get("dns_ttl", [])
 
+    # print some info
+    print("My configured hostname is: " + my_hostname)
+
     # start boto Session
     boto_session = get_boto_session(config["profile_name"], aws_region)
     client = boto_session.client("route53", region_name=aws_region)
 
     # get the latest IP address based on the provided hostname
     my_ip_address = get_latest_ip_address(my_hostname)
-    print("My Public IP address is: " + my_ip_address)
+    # print(type(my_ip_address))
+    if type(my_ip_address) is bool:
+        print("You didn't had a recorded IP yet.")
+    else:
+        print("My last address is was: " + my_ip_address)
 
     # check if IP address is valid
     DDNSUpdater.validate_ip_address(my_ip_address)
 
     # get current IP address
     public_ip = get_public_ip()
+    print("My current address is: " + public_ip)
     # print(public_ip)
 
     # check if current IP address is valid
@@ -137,14 +145,9 @@ if __name__ == "__main__":
     if my_ip_address == public_ip:
         print("Same IP, it did not change! Will not make any updates.")
     else:
-        print("Different IPs, the IP changed! Will update the DNS records.")
+        print("** Different IPs, the IP changed! Will update the DNS records.")
         # update DNS accordingly 
         resp = manipulate_dns_record(host_zone_id, dns_ttl, my_hostname, public_ip)
         # print(resp)
-
-    # print(profile_name)
-    # print(aws_region)
-    # print(save_txt_record)
-    # print(host_zone_id)
 
 # End;
