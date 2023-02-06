@@ -1,0 +1,12 @@
+---
+# Credentials profile name from your ~/.aws/credentials file
+profile_name: my-profile-name
+
+# assertions
+assertions:
+  hostname: "your-hostname.your-domain.com"
+  region: us-east-1
+  host_zone_id: "your-route53-host-zone-id"
+  dns_ttl: 60
+
+# End ;
