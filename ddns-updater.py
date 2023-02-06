@@ -5,6 +5,8 @@ import yaml
 import boto3
 import ipaddress
 import urllib.request
+from datetime import datetime, timezone
+from pytz import timezone
 
 class DDNSUpdater:
 
@@ -14,9 +16,9 @@ class DDNSUpdater:
     def validate_ip_address(ip_address):
         try:
             ip_object = ipaddress.ip_address(ip_address)
-            print("The IP address '{ip_object}' is valid.")
+            print("The IP address provided is valid.")
         except ValueError:
-            print("The IP address '{ip_string}' is not valid")
+            print("The IP address provided is NOT valid.")
 
 # get configs
 def _get_config_from_file(filename):
@@ -36,17 +38,20 @@ def get_latest_ip_address(my_hostname):
         RecordName=my_hostname,
         RecordType='A',
     )
-    # print(response)
 
     if response['RecordData']:
-        # print("it has value")
-        # print(response['RecordName'])
-        # print(response['RecordData'][0])
         return response['RecordData'][0]
     else:
-        # print("it DOES NOT have value")
         # return "127.0.0.1"
         return False
+
+# get timestamp
+def get_timestamp():
+    now = datetime.now()
+    now_utc = datetime.now(timezone('UTC'))
+    format = "%Y-%m-%d %H:%M:%S %Z%z"
+    return now_utc.strftime(format)
+
 
 # get public IP
 def get_public_ip():
@@ -57,6 +62,8 @@ def get_public_ip():
 
 # create or update DNS record
 def manipulate_dns_record(host_zone_id, dns_ttl, my_hostname, public_ip):
+    # last_updated = "2023-02-06 10:25:00 EST"
+    last_updated = get_timestamp()
     response = client.change_resource_record_sets(
         HostedZoneId=host_zone_id,
         ChangeBatch = {
@@ -81,7 +88,7 @@ def manipulate_dns_record(host_zone_id, dns_ttl, my_hostname, public_ip):
                         'Type': 'TXT',
                         'ResourceRecords': [
                             {
-                                'Value': '"This is a test text."'
+                                'Value': '"Last updated: '+last_updated+'"'
                             }
                         ],
                         'TTL': dns_ttl
@@ -114,64 +121,26 @@ if __name__ == "__main__":
 
     # get the latest IP address based on the provided hostname
     my_ip_address = get_latest_ip_address(my_hostname)
-    print(my_ip_address)
+    print("My Public IP address is: " + my_ip_address)
 
     # check if IP address is valid
     DDNSUpdater.validate_ip_address(my_ip_address)
 
     # get current IP address
     public_ip = get_public_ip()
-    print(public_ip)
+    # print(public_ip)
 
     # check if current IP address is valid
     DDNSUpdater.validate_ip_address(public_ip)
 
     # compare if current IP address is different from latest
     if my_ip_address == public_ip:
-        print("Same IP, did not change!")
+        print("Same IP, it did not change! Will not make any updates.")
     else:
-        print("Different IPs, IP changed!")
+        print("Different IPs, the IP changed! Will update the DNS records.")
+        # update DNS accordingly 
         resp = manipulate_dns_record(host_zone_id, dns_ttl, my_hostname, public_ip)
-        # response = client.change_resource_record_sets(
-        #     HostedZoneId=host_zone_id,
-        #     ChangeBatch = {
-        #         'Changes': [
-        #             {
-        #                 'Action': 'UPSERT',
-        #                 'ResourceRecordSet': {
-        #                     'Name': my_hostname+".",
-        #                     'Type': 'A',
-        #                     'ResourceRecords': [
-        #                         {
-        #                             'Value': public_ip
-        #                         }
-        #                     ],
-        #                     'TTL': 60
-        #                 }
-        #             },
-        #             {
-        #                 'Action': 'UPSERT',
-        #                 'ResourceRecordSet': {
-        #                     'Name': my_hostname+".",
-        #                     'Type': 'TXT',
-        #                     'ResourceRecords': [
-        #                         {
-        #                             'Value': '"This is a test text."'
-        #                         }
-        #                     ],
-        #                     'TTL': 60
-        #                 }
-        #             }
-        #         ],
-        #         'Comment': 'Updated using https://github.com/groorj/aws-route53-ddns',
-        #     }
-        # )
-        print(resp)
-
-    # update DNS accordingly 
-
-    # print(update_json.format(var_my_ip_address=my_ip_address))
-    # print(update_json)
+        # print(resp)
 
     # print(profile_name)
     # print(aws_region)
